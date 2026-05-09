@@ -37,6 +37,36 @@ class SocketService {
     }
   }
 
+  lockSlot(expertId, date, timeSlot) {
+    if (this.socket) {
+      this.socket.emit('lockSlot', { expertId, date, timeSlot });
+    }
+  }
+
+  unlockSlot(expertId, date, timeSlot) {
+    if (this.socket) {
+      this.socket.emit('unlockSlot', { expertId, date, timeSlot });
+    }
+  }
+
+  onInitialLocks(callback) {
+    if (this.socket) {
+      this.socket.on('initialLocks', callback);
+    }
+  }
+
+  onSlotLocked(callback) {
+    if (this.socket) {
+      this.socket.on('slotLocked', callback);
+    }
+  }
+
+  onSlotUnlocked(callback) {
+    if (this.socket) {
+      this.socket.on('slotUnlocked', callback);
+    }
+  }
+
   onSlotBooked(callback) {
     if (this.socket) {
       this.socket.on('slotBooked', callback);
@@ -64,6 +94,24 @@ class SocketService {
   offSlotFreed() {
     if (this.socket) {
       this.socket.off('slotFreed');
+    }
+  }
+
+  offSlotLocked() {
+    if (this.socket) {
+      this.socket.off('slotLocked');
+    }
+  }
+
+  offSlotUnlocked() {
+    if (this.socket) {
+      this.socket.off('slotUnlocked');
+    }
+  }
+
+  offInitialLocks() {
+    if (this.socket) {
+      this.socket.off('initialLocks');
     }
   }
 

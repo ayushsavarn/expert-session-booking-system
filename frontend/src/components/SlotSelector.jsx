@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const SlotSelector = ({ availableSlots, selectedDate, selectedTime, onSelectSlot, bookedSlots = [] }) => {
+const SlotSelector = ({ availableSlots, selectedDate, selectedTime, onSelectSlot, bookedSlots = [], lockedSlots = [] }) => {
   const [activeDate, setActiveDate] = useState('');
 
   useEffect(() => {
@@ -40,6 +40,12 @@ const SlotSelector = ({ availableSlots, selectedDate, selectedTime, onSelectSlot
     );
   };
 
+  const isSlotLocked = (time) => {
+    return lockedSlots.some(
+      (l) => l.date === activeDate && l.timeSlot === time
+    );
+  };
+
   const isSlotSelected = (time) => {
     return selectedDate === activeDate && selectedTime === time;
   };
@@ -65,21 +71,25 @@ const SlotSelector = ({ availableSlots, selectedDate, selectedTime, onSelectSlot
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
         {currentSlots?.slots?.map((slot) => {
           const booked = slot.isBooked || isSlotBooked(slot.time);
+          const locked = isSlotLocked(slot.time);
+          const selected = isSlotSelected(slot.time);
 
           return (
             <button
               key={slot.time}
-              onClick={() => !booked && onSelectSlot(activeDate, slot.time)}
-              disabled={booked}
+              onClick={() => !booked && !locked && onSelectSlot(activeDate, slot.time)}
+              disabled={booked || (locked && !selected)}
               className={`py-2 px-3 rounded-lg font-medium text-sm transition-all cursor-pointer ${
-                isSlotSelected(slot.time)
-                  ? 'bg-indigo-600 text-white cursor-default'
+                selected
+                  ? 'bg-indigo-600 text-white shadow-sm'
                   : booked
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed line-through'
+                  : locked
+                  ? 'bg-orange-50 text-orange-400 border border-orange-200 cursor-not-allowed'
                   : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
               }`}
             >
-              {slot.time}
+              {locked && !selected ? 'Blocked' : slot.time}
             </button>
           );
         })}

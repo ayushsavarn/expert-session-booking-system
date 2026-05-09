@@ -17,6 +17,7 @@ const ExpertDetailPage = () => {
   const [bookingSuccess, setBookingSuccess] = useState(null);
   const [bookingError, setBookingError] = useState(null);
   const [bookedSlots, setBookedSlots] = useState([]);
+  const [lockedSlots, setLockedSlots] = useState([]); // Slots being viewed by others
 
   const syncExpert = useCallback(async () => {
     try {
@@ -52,9 +53,30 @@ const ExpertDetailPage = () => {
     socketService.connect();
     socketService.joinExpertRoom(id);
 
+    socketService.onInitialLocks((locks) => {
+      setLockedSlots(locks);
+    });
+
+    socketService.onSlotLocked((data) => {
+      if (data.expertId === id) {
+        setLockedSlots((prev) => [...prev, { date: data.date, timeSlot: data.timeSlot }]);
+      }
+    });
+
+    socketService.onSlotUnlocked((data) => {
+      if (data.expertId === id) {
+        setLockedSlots((prev) =>
+          prev.filter((slot) => !(slot.date === data.date && slot.timeSlot === data.timeSlot))
+        );
+      }
+    });
+
     socketService.onSlotBooked((data) => {
       if (data.expertId === id) {
         setBookedSlots((prev) => [...prev, { date: data.date, timeSlot: data.timeSlot }]);
+        setLockedSlots((prev) =>
+          prev.filter((slot) => !(slot.date === data.date && slot.timeSlot === data.timeSlot))
+        );
       }
     });
 
@@ -69,14 +91,42 @@ const ExpertDetailPage = () => {
     return () => {
       socketService.offSlotBooked();
       socketService.offSlotFreed();
+      socketService.offSlotLocked();
+      socketService.offSlotUnlocked();
+      socketService.offInitialLocks();
     };
   }, [id, syncExpert, syncUserBookings]);
 
+  // Handle unlocking slot when user leaves or changes selection
+  useEffect(() => {
+    return () => {
+      if (selectedDate && selectedTime) {
+        socketService.unlockSlot(id, selectedDate, selectedTime);
+      }
+    };
+  }, [id, selectedDate, selectedTime]);
+
   const onSelectSlot = (date, time) => {
+    // DESELECT: If we click the already selected slot, unlock it and clear
+    if (selectedDate === date && selectedTime === time) {
+      socketService.unlockSlot(id, date, time);
+      setSelectedDate('');
+      setSelectedTime('');
+      return;
+    }
+
+    // If we had a different slot selected, unlock the old one first
+    if (selectedDate && selectedTime) {
+      socketService.unlockSlot(id, selectedDate, selectedTime);
+    }
+
     setSelectedDate(date);
     setSelectedTime(time);
     setBookingSuccess(null);
     setBookingError(null);
+
+    // Lock the new slot
+    socketService.lockSlot(id, date, time);
   };
 
   const onBookSession = async (bookingData) => {
@@ -88,6 +138,10 @@ const ExpertDetailPage = () => {
       localStorage.setItem('userEmail', bookingData.email);
 
       await bookSession(bookingData);
+      
+      // Explicitly unlock on successful booking (though disconnect/re-lock would also handle it)
+      socketService.unlockSlot(id, selectedDate, selectedTime);
+      
       setBookingSuccess('Session booked successfully!');
       setSelectedDate('');
       setSelectedTime('');
@@ -195,6 +249,7 @@ const ExpertDetailPage = () => {
                 selectedTime={selectedTime}
                 onSelectSlot={onSelectSlot}
                 bookedSlots={bookedSlots}
+                lockedSlots={lockedSlots}
               />
             </div>
           </div>
